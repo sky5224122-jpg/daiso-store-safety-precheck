@@ -14,8 +14,15 @@ const STORES = [
 
 const STORE_LIST = STORES.flatMap((s) => s.stores);
 
-// 등급 우선순위 (숫자가 클수록 나쁨)
-const GRADE_RANK = { A: 0, B: 1, C: 2, D: 3 };
+// 등급 점수 (평균 계산용, 미해당 항목은 제외)
+const GRADE_SCORE = { A: 4, B: 3, C: 2, D: 1 };
+const SCORE_TO_GRADE = { 4: "A", 3: "B", 2: "C", 1: "D" };
+
+function scoreToGrade(avg) {
+  const rounded = Math.max(1, Math.min(4, Math.round(avg)));
+  return SCORE_TO_GRADE[rounded];
+}
+
 const GRADE_LABEL = {
   A: "양호",
   B: "일부 결손",

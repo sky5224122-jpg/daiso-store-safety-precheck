@@ -91,7 +91,7 @@ function renderDomains() {
       const info = el("div", { class: "item-info" }, [
         el("div", { class: "item-cat" }, [
           el("span", { class: "cat-chip", text: item.cat }),
-          item.critical ? el("span", { class: "critical-chip", text: "필수 · 자동등급조정" }) : null,
+          item.critical ? el("span", { class: "critical-chip", text: "핵심 문항" }) : null,
           item.onsite ? el("span", { class: `onsite-chip onsite-${item.onsite}`, text: "당일보강 " + item.onsite }) : null,
         ]),
         el("div", { class: "item-name", text: item.name }),
@@ -123,12 +123,21 @@ function renderDomains() {
   });
 }
 
-function domainGrade(domain) {
-  const grades = domain.items
+function scoresOf(items) {
+  return items
     .map((it) => state.answers[it.id])
-    .filter((g) => g && g !== "NA");
-  if (grades.length === 0) return null;
-  return grades.reduce((worst, g) => (GRADE_RANK[g] > GRADE_RANK[worst] ? g : worst), "A");
+    .filter((g) => g && g !== "NA")
+    .map((g) => GRADE_SCORE[g]);
+}
+
+function averageGrade(scores) {
+  if (scores.length === 0) return null;
+  const avg = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+  return { avg, grade: scoreToGrade(avg) };
+}
+
+function domainGrade(domain) {
+  return averageGrade(scoresOf(domain.items));
 }
 
 function domainAnsweredCount(domain) {
@@ -136,23 +145,19 @@ function domainAnsweredCount(domain) {
 }
 
 function recalc() {
-  let finalGrade = null;
-  let interviewHasD = false;
-  const domainGrades = {};
+  const allScores = [];
 
   DOMAINS.forEach((domain) => {
-    const g = domainGrade(domain);
-    domainGrades[domain.key] = g;
+    const result = domainGrade(domain);
     const badge = document.getElementById(`badge-${domain.key}`);
-    if (g) {
-      badge.textContent = `${g} · ${GRADE_LABEL[g]}`;
-      badge.className = `domain-grade-badge grade-bg-${g}`;
-      if (finalGrade == null || GRADE_RANK[g] > GRADE_RANK[finalGrade]) finalGrade = g;
+    if (result) {
+      badge.textContent = `${result.grade} · ${GRADE_LABEL[result.grade]} (평균 ${result.avg.toFixed(1)})`;
+      badge.className = `domain-grade-badge grade-bg-${result.grade}`;
     } else {
       badge.textContent = "미평가";
       badge.className = "domain-grade-badge";
     }
-    if (domain.key === "interview" && g === "D") interviewHasD = true;
+    allScores.push(...scoresOf(domain.items));
   });
 
   const totalItems = DOMAINS.reduce((sum, d) => sum + d.items.length, 0);
@@ -164,25 +169,18 @@ function recalc() {
 
   const finalBox = document.getElementById("finalGrade");
   const finalReason = document.getElementById("finalReason");
-  const warnBanner = document.getElementById("interviewWarning");
+  const finalResult = averageGrade(allScores);
 
-  if (!finalGrade) {
+  if (!finalResult) {
     finalBox.textContent = "-";
     finalBox.className = "final-grade-value";
     finalReason.textContent = "항목을 평가하면 최종 등급이 자동 계산됩니다.";
-    warnBanner.classList.add("hidden");
     return;
   }
 
-  finalBox.textContent = finalGrade;
-  finalBox.className = `final-grade-value grade-bg-${finalGrade}`;
-  finalReason.textContent = `${GRADE_LABEL[finalGrade]} · ${GRADE_ACTION[finalGrade]}`;
-
-  if (interviewHasD) {
-    warnBanner.classList.remove("hidden");
-  } else {
-    warnBanner.classList.add("hidden");
-  }
+  finalBox.textContent = finalResult.grade;
+  finalBox.className = `final-grade-value grade-bg-${finalResult.grade}`;
+  finalReason.textContent = `평균 ${finalResult.avg.toFixed(2)}점 · ${GRADE_LABEL[finalResult.grade]} · ${GRADE_ACTION[finalResult.grade]}`;
 }
 
 function buildReportText() {
@@ -197,8 +195,8 @@ function buildReportText() {
   lines.push("");
 
   DOMAINS.forEach((domain) => {
-    const g = domainGrade(domain);
-    lines.push(`■ ${domain.title} — ${g ? `${g} (${GRADE_LABEL[g]})` : "미평가"}`);
+    const result = domainGrade(domain);
+    lines.push(`■ ${domain.title} — ${result ? `${result.grade} (${GRADE_LABEL[result.grade]}, 평균 ${result.avg.toFixed(1)})` : "미평가"}`);
     domain.items.forEach((item) => {
       const ans = state.answers[item.id] || "-";
       lines.push(`  [${ans}] ${item.name}`);
@@ -210,9 +208,6 @@ function buildReportText() {
 
   const finalGrade = document.getElementById("finalGrade").textContent;
   lines.push(`▶ 최종 등급: ${finalGrade}  (${document.getElementById("finalReason").textContent})`);
-  if (!document.getElementById("interviewWarning").classList.contains("hidden")) {
-    lines.push(`⚠ 인터뷰 영역 D 발생 → 최종 등급 자동 D 확정`);
-  }
   if (memo) {
     lines.push("");
     lines.push(`[특이사항] ${memo}`);
