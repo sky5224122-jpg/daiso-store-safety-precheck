@@ -87,6 +87,30 @@
     </div>
   </section>
 
+  <section id="statsCard" class="stats-card hidden">
+    <div class="stats-head">
+      <h2>매장 평가 통계 <span class="admin-badge">강동현 전용</span></h2>
+      <p class="stats-flow">확인 경로 : 평가자 &quot;강동현&quot; 선택 → 이 화면에 자동 표시됨 (이 기기에 저장된 평가 결과 기준 집계)</p>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <h3 class="stats-subtitle">매장별 최신 결과</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>매장</th><th>최근 방문일</th><th>평가자</th><th>최종등급</th></tr></thead>
+        <tbody id="statsStoreBody"></tbody>
+      </table>
+    </div>
+
+    <h3 class="stats-subtitle">평가자별 저장 건수</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>평가자</th><th>건수</th></tr></thead>
+        <tbody id="statsEvaluatorBody"></tbody>
+      </table>
+    </div>
+  </section>
+
   <footer class="app-footer">
     <p>기준: 26년 매장 안전보건관리체(ISO45001) 준비 사항 · 안전보건팀 (강동현 · 유준하 · 서유림 · 윤정인)</p>
   </footer>

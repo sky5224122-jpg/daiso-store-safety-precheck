@@ -24,6 +24,7 @@ function el(tag, attrs = {}, children = []) {
 function initHeader() {
   const evalSel = document.getElementById("evaluator");
   EVALUATORS.forEach((name) => evalSel.appendChild(el("option", { value: name, text: name })));
+  evalSel.addEventListener("change", updateStatsVisibility);
 
   const storeSelect = document.getElementById("storeName");
   STORE_LIST.forEach((s) => storeSelect.appendChild(el("option", { value: s, text: s })));
@@ -256,6 +257,74 @@ function loadRecords() {
   }
 }
 
+function isManagerView() {
+  return document.getElementById("evaluator").value === "강동현";
+}
+
+function updateStatsVisibility() {
+  const card = document.getElementById("statsCard");
+  const show = isManagerView();
+  card.classList.toggle("hidden", !show);
+  if (show) renderStats();
+}
+
+function renderStats() {
+  const records = loadRecords();
+
+  const grid = document.getElementById("statsGrid");
+  grid.innerHTML = "";
+  const counts = { A: 0, B: 0, C: 0, D: 0 };
+  records.forEach((r) => {
+    if (counts[r.finalGrade] != null) counts[r.finalGrade]++;
+  });
+  const tiles = [
+    { label: "총 저장 건수", value: records.length, cls: "" },
+    { label: "A 등급", value: counts.A, cls: "grade-bg-A" },
+    { label: "B 등급", value: counts.B, cls: "grade-bg-B" },
+    { label: "C 등급", value: counts.C, cls: "grade-bg-C" },
+    { label: "D 등급", value: counts.D, cls: "grade-bg-D" },
+  ];
+  tiles.forEach((t) => {
+    grid.appendChild(
+      el("div", { class: "stat-tile" }, [
+        el("div", { class: `stat-value ${t.cls}`, text: String(t.value) }),
+        el("div", { class: "stat-label", text: t.label }),
+      ])
+    );
+  });
+
+  const latestByStore = new Map();
+  records.forEach((r) => {
+    if (!latestByStore.has(r.store)) latestByStore.set(r.store, r);
+  });
+  const storeBody = document.getElementById("statsStoreBody");
+  storeBody.innerHTML = "";
+  if (latestByStore.size === 0) {
+    storeBody.appendChild(el("tr", {}, [el("td", { colspan: "4", class: "empty", text: "저장된 결과가 없습니다." })]));
+  } else {
+    latestByStore.forEach((r) => {
+      storeBody.appendChild(
+        el("tr", {}, [
+          el("td", { text: r.store }),
+          el("td", { text: r.date }),
+          el("td", { text: r.evaluator }),
+          el("td", {}, [el("span", { class: `grade-chip grade-bg-${r.finalGrade}`, text: r.finalGrade })]),
+        ])
+      );
+    });
+  }
+
+  const byEvaluator = {};
+  records.forEach((r) => {
+    byEvaluator[r.evaluator] = (byEvaluator[r.evaluator] || 0) + 1;
+  });
+  const evalBody = document.getElementById("statsEvaluatorBody");
+  evalBody.innerHTML = "";
+  EVALUATORS.forEach((name) => {
+    evalBody.appendChild(el("tr", {}, [el("td", { text: name }), el("td", { text: String(byEvaluator[name] || 0) })]));
+  });
+}
+
 function renderHistory() {
   const records = loadRecords();
   const tbody = document.getElementById("historyBody");
@@ -278,6 +347,7 @@ function renderHistory() {
     ]);
     tbody.appendChild(row);
   });
+  updateStatsVisibility();
 }
 
 function deleteRecord(id) {
