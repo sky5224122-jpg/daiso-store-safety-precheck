@@ -273,7 +273,11 @@ td.empty { color: var(--muted); text-align: center; }
   padding: 2px 9px;
   border-radius: 10px;
 }
-.stats-flow { font-size: 12px; color: var(--muted); margin: 0 0 16px; }
+.stats-flow { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+.stats-status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.sync-status { font-size: 12px; font-weight: 700; color: var(--muted); }
+.sync-status-ok { color: var(--grade-a); }
+.sync-status-warn { color: var(--grade-c); }
 .stats-subtitle { font-size: 13px; color: var(--navy); margin: 18px 0 8px; }
 .stats-grid {
   display: grid;

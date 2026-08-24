@@ -14,6 +14,14 @@ const STORES = [
 
 const STORE_LIST = STORES.flatMap((s) => s.stores);
 
+// 공유 저장소(Google Apps Script 웹앱) 연동 설정
+// 배포 후 발급되는 .../exec 주소를 url에 붙여넣으면 4명의 저장 결과가 한 스프레드시트에 취합됩니다.
+// 설정 방법은 google-apps-script/README.md 참고.
+const SYNC_CONFIG = {
+  url: "",
+  secret: "daiso-shms-2026",
+};
+
 // 등급 점수 (평균 계산용, 미해당 항목은 제외)
 const GRADE_SCORE = { A: 4, B: 3, C: 2, D: 1 };
 const SCORE_TO_GRADE = { 4: "A", 3: "B", 2: "C", 1: "D" };

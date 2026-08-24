@@ -215,7 +215,7 @@ function buildReportText() {
   return lines.join("\n");
 }
 
-function saveRecord() {
+async function saveRecord() {
   const store = document.getElementById("storeName").value.trim();
   const evaluator = document.getElementById("evaluator").value;
   if (!store || !evaluator) {
@@ -228,6 +228,7 @@ function saveRecord() {
   }
   const record = {
     id: Date.now(),
+    savedAt: new Date().toISOString(),
     store,
     evaluator,
     date: document.getElementById("visitDate").value,
@@ -241,7 +242,22 @@ function saveRecord() {
   records.unshift(record);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   renderHistory();
-  alert("이 기기에 평가 결과가 저장되었습니다.");
+
+  if (!isSyncEnabled()) {
+    alert("이 기기에 저장되었습니다.\n(공유 저장소가 아직 연결되지 않아 다른 평가자와는 자동으로 합쳐지지 않습니다.)");
+    return;
+  }
+  const saveBtn = document.getElementById("saveBtn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "공유 저장소에 전송 중...";
+  const result = await pushToSync(record);
+  saveBtn.disabled = false;
+  saveBtn.textContent = "결과 저장 (이 기기 + 공유)";
+  if (result.ok) {
+    alert("이 기기와 공유 저장소에 모두 저장되었습니다.");
+  } else {
+    alert("이 기기에는 저장되었지만 공유 저장소 전송에 실패했습니다.\n(네트워크 상태를 확인하고 나중에 다시 시도해 주세요)");
+  }
 }
 
 function loadRecords() {
@@ -252,19 +268,73 @@ function loadRecords() {
   }
 }
 
+function isSyncEnabled() {
+  return !!(SYNC_CONFIG && SYNC_CONFIG.url);
+}
+
+async function pushToSync(record) {
+  if (!isSyncEnabled()) return { ok: false, error: "not-configured" };
+  try {
+    const res = await fetch(SYNC_CONFIG.url, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // Apps Script CORS preflight 회피용
+      body: JSON.stringify({ ...record, secret: SYNC_CONFIG.secret }),
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+async function fetchSyncRecords() {
+  if (!isSyncEnabled()) return null;
+  try {
+    const res = await fetch(SYNC_CONFIG.url);
+    const data = await res.json();
+    return data.ok ? data.records : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function loadMergedRecords() {
+  const local = loadRecords();
+  if (!isSyncEnabled()) return { records: local, source: "local" };
+  const shared = await fetchSyncRecords();
+  if (shared == null) return { records: local, source: "local-fallback" };
+  const merged = new Map();
+  local.forEach((r) => merged.set(String(r.id), r));
+  shared.forEach((r) => merged.set(String(r.id), r)); // 공유 저장소 값을 최종본으로 사용
+  const list = Array.from(merged.values()).sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
+  return { records: list, source: "shared" };
+}
+
 function isManagerView() {
   return document.getElementById("evaluator").value === "강동현";
 }
 
-function updateStatsVisibility() {
+async function updateStatsVisibility() {
   const card = document.getElementById("statsCard");
   const show = isManagerView();
   card.classList.toggle("hidden", !show);
-  if (show) renderStats();
+  if (show) await renderStats();
 }
 
-function renderStats() {
-  const records = loadRecords();
+async function renderStats() {
+  const statusEl = document.getElementById("statsSyncStatus");
+  statusEl.textContent = isSyncEnabled() ? "공유 데이터 불러오는 중..." : "⚠ 공유 저장소 미연결 — 이 기기 데이터만 표시 중";
+  statusEl.className = isSyncEnabled() ? "sync-status" : "sync-status sync-status-warn";
+
+  const { records, source } = await loadMergedRecords();
+
+  if (source === "shared") {
+    statusEl.textContent = `☁ 공유 저장소 연결됨 — 4명 결과 전체 집계 (${records.length}건)`;
+    statusEl.className = "sync-status sync-status-ok";
+  } else if (source === "local-fallback") {
+    statusEl.textContent = "⚠ 공유 저장소 응답 없음 — 이 기기 데이터만 표시 중";
+    statusEl.className = "sync-status sync-status-warn";
+  }
 
   const grid = document.getElementById("statsGrid");
   grid.innerHTML = "";
@@ -371,10 +441,13 @@ function resetForm() {
 }
 
 function initButtons() {
-  document.getElementById("saveBtn").addEventListener("click", saveRecord);
+  const saveBtn = document.getElementById("saveBtn");
+  saveBtn.textContent = isSyncEnabled() ? "결과 저장 (이 기기 + 공유)" : "결과 저장 (이 기기)";
+  saveBtn.addEventListener("click", saveRecord);
   document.getElementById("copyBtn").addEventListener("click", () => copyText(buildReportText()));
   document.getElementById("printBtn").addEventListener("click", () => window.print());
   document.getElementById("resetBtn").addEventListener("click", resetForm);
+  document.getElementById("statsRefreshBtn").addEventListener("click", renderStats);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

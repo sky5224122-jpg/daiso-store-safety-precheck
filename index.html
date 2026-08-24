@@ -86,7 +86,11 @@
   <section id="statsCard" class="stats-card hidden">
     <div class="stats-head">
       <h2>매장 평가 통계 <span class="admin-badge">강동현 전용</span></h2>
-      <p class="stats-flow">확인 경로 : 평가자 &quot;강동현&quot; 선택 → 이 화면에 자동 표시됨 (이 기기에 저장된 평가 결과 기준 집계)</p>
+      <p class="stats-flow">확인 경로 : 평가자 &quot;강동현&quot; 선택 → 이 화면에 자동 표시됨 (4명 전체 평가자의 공유 저장소 결과 기준 집계)</p>
+      <div class="stats-status-row">
+        <span id="statsSyncStatus" class="sync-status"></span>
+        <button id="statsRefreshBtn" class="small-btn" type="button">새로고침</button>
+      </div>
     </div>
     <div class="stats-grid" id="statsGrid"></div>
 
