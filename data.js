@@ -18,7 +18,7 @@ const STORE_LIST = STORES.flatMap((s) => s.stores);
 // 배포 후 발급되는 .../exec 주소를 url에 붙여넣으면 4명의 저장 결과가 한 스프레드시트에 취합됩니다.
 // 설정 방법은 google-apps-script/README.md 참고.
 const SYNC_CONFIG = {
-  url: "",
+  url: "https://script.google.com/macros/s/AKfycbxwZmpE8w76SsfcvmpChZu6UwmF_pisJNW6xioX7OZRZ8yYVxvv7GTFOmS-WXQSaAuA/exec",
   secret: "daiso-shms-2026",
 };
 
