@@ -24,9 +24,8 @@ function initHeader() {
   const evalSel = document.getElementById("evaluator");
   EVALUATORS.forEach((name) => evalSel.appendChild(el("option", { value: name, text: name })));
 
-  const storeInput = document.getElementById("storeName");
-  const dataList = document.getElementById("storeList");
-  STORE_LIST.forEach((s) => dataList.appendChild(el("option", { value: s })));
+  const storeSelect = document.getElementById("storeName");
+  STORE_LIST.forEach((s) => storeSelect.appendChild(el("option", { value: s, text: s })));
 
   const dateInput = document.getElementById("visitDate");
   const today = new Date();
