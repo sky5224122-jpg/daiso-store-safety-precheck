@@ -27,9 +27,32 @@ body {
   color: #fff;
   padding: 28px 20px;
 }
-.header-inner { max-width: 960px; margin: 0 auto; }
+.header-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.header-text { flex: 1 1 auto; min-width: 0; }
 .app-header h1 { margin: 0 0 6px; font-size: 22px; }
 .subtitle { margin: 0; color: #cadcfc; font-size: 13px; }
+.header-qr {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+.header-qr img { display: block; width: 64px; height: 64px; }
+.header-qr span { font-size: 11px; font-weight: 700; color: var(--navy); line-height: 1.4; }
+
+@media (max-width: 560px) {
+  .header-qr { display: none; }
+}
 
 .container { max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
 
