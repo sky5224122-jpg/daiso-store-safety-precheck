@@ -34,6 +34,17 @@
     </div>
   </section>
 
+  <section class="criteria-card">
+    <button id="criteriaToggle" class="criteria-toggle" type="button">평가기준 보기 ▾</button>
+    <div id="criteriaPanel" class="criteria-panel hidden">
+      <table>
+        <thead><tr><th>등급</th><th>의미</th><th>후속 조치</th></tr></thead>
+        <tbody id="criteriaTable"></tbody>
+      </table>
+      <p class="criteria-note">각 항목은 A~D 중 하나로 평가하며, 해당 사항이 없는 항목은 <strong>미해당</strong>을 선택합니다. 인터뷰 영역에서 D가 1건이라도 발생하면 최종 등급은 D로 자동 확정됩니다.</p>
+    </div>
+  </section>
+
   <section class="summary-bar">
     <div class="progress-wrap">
       <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>

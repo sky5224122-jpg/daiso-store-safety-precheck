@@ -3,6 +3,7 @@ const STORAGE_KEY = "daiso_store_precheck_records_v1";
 
 const state = {
   answers: {}, // itemId -> "A"|"B"|"C"|"D"|"NA"
+  notes: {}, // itemId -> 수기 평가 결과 텍스트
 };
 
 function el(tag, attrs = {}, children = []) {
@@ -32,11 +33,30 @@ function initHeader() {
   dateInput.value = today.toISOString().slice(0, 10);
 }
 
-function gradeBtn(itemId, grade, extraClass) {
+function renderCriteria() {
+  const table = document.getElementById("criteriaTable");
+  ["A", "B", "C", "D"].forEach((g) => {
+    const row = el("tr", {}, [
+      el("td", {}, [el("span", { class: `grade-chip grade-bg-${g}`, text: g })]),
+      el("td", { text: GRADE_LABEL[g] }),
+      el("td", { text: GRADE_ACTION[g] }),
+    ]);
+    table.appendChild(row);
+  });
+
+  const toggleBtn = document.getElementById("criteriaToggle");
+  const panel = document.getElementById("criteriaPanel");
+  toggleBtn.addEventListener("click", () => {
+    const isHidden = panel.classList.toggle("hidden");
+    toggleBtn.textContent = isHidden ? "평가기준 보기 ▾" : "평가기준 닫기 ▴";
+  });
+}
+
+function gradeBtn(itemId, grade, extraClass, label) {
   const btn = el("button", {
     class: `grade-btn grade-${grade} ${extraClass || ""}`,
     type: "button",
-    text: grade,
+    text: label || grade,
     onclick: () => selectGrade(itemId, grade),
   });
   btn.dataset.item = itemId;
@@ -81,10 +101,20 @@ function renderDomains() {
         gradeBtn(item.id, "B"),
         gradeBtn(item.id, "C"),
         gradeBtn(item.id, "D"),
-        item.na ? gradeBtn(item.id, "NA", "grade-na") : null,
+        gradeBtn(item.id, "NA", "grade-na", "미해당"),
       ]);
-      row.appendChild(info);
-      row.appendChild(buttons);
+      const noteInput = el("textarea", {
+        class: "item-note",
+        id: `note-${item.id}`,
+        rows: "1",
+        placeholder: "이 항목의 평가 결과 · 확인 내용을 직접 입력하세요",
+        oninput: (e) => {
+          state.notes[item.id] = e.target.value;
+        },
+      });
+      const top = el("div", { class: "item-row-top" }, [info, buttons]);
+      row.appendChild(top);
+      row.appendChild(noteInput);
       table.appendChild(row);
     });
     section.appendChild(table);
@@ -171,6 +201,8 @@ function buildReportText() {
     domain.items.forEach((item) => {
       const ans = state.answers[item.id] || "-";
       lines.push(`  [${ans}] ${item.name}`);
+      const note = (state.notes[item.id] || "").trim();
+      if (note) lines.push(`      ↳ ${note}`);
     });
     lines.push("");
   });
@@ -206,6 +238,7 @@ function saveRecord() {
     finalGrade,
     memo: document.getElementById("memo").value.trim(),
     answers: { ...state.answers },
+    notes: { ...state.notes },
     reportText: buildReportText(),
   };
   const records = loadRecords();
@@ -264,7 +297,9 @@ function copyText(text) {
 function resetForm() {
   if (!confirm("현재 입력한 평가 내용을 모두 초기화할까요?")) return;
   state.answers = {};
+  state.notes = {};
   document.querySelectorAll(".grade-btn.active").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".item-note").forEach((t) => (t.value = ""));
   document.getElementById("memo").value = "";
   document.getElementById("storeName").value = "";
   recalc();
@@ -279,6 +314,7 @@ function initButtons() {
 
 document.addEventListener("DOMContentLoaded", () => {
   initHeader();
+  renderCriteria();
   renderDomains();
   initButtons();
   renderHistory();
