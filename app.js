@@ -24,14 +24,42 @@ function el(tag, attrs = {}, children = []) {
 function initHeader() {
   const evalSel = document.getElementById("evaluator");
   EVALUATORS.forEach((name) => evalSel.appendChild(el("option", { value: name, text: name })));
-  evalSel.addEventListener("change", updateStatsVisibility);
 
   const storeSelect = document.getElementById("storeName");
   STORE_LIST.forEach((s) => storeSelect.appendChild(el("option", { value: s, text: s })));
+  storeSelect.addEventListener("change", () => updateStoreDocLink(storeSelect.value));
 
   const dateInput = document.getElementById("visitDate");
   const today = new Date();
   dateInput.value = today.toISOString().slice(0, 10);
+}
+
+function storeDocUrl(storeName) {
+  return `store-docs/${encodeURIComponent(storeName)}.zip`;
+}
+
+function updateStoreDocLink(storeName) {
+  const link = document.getElementById("docsStoreLink");
+  if (!storeName) {
+    link.href = "#";
+    link.removeAttribute("download");
+    link.setAttribute("aria-disabled", "true");
+    link.classList.add("doc-link-disabled");
+    link.textContent = "매장을 선택하면 해당 매장 자료 다운로드가 활성화됩니다";
+    return;
+  }
+  link.href = storeDocUrl(storeName);
+  link.setAttribute("download", "");
+  link.removeAttribute("aria-disabled");
+  link.classList.remove("doc-link-disabled");
+  link.textContent = `${storeName} 자료 다운로드`;
+}
+
+function renderDocsList() {
+  const list = document.getElementById("docsAllList");
+  STORE_LIST.forEach((s) => {
+    list.appendChild(el("a", { class: "doc-link doc-link-small", href: storeDocUrl(s), download: "", text: s }));
+  });
 }
 
 function renderCriteria() {
@@ -310,17 +338,6 @@ async function loadMergedRecords() {
   return { records: list, source: "shared" };
 }
 
-function isManagerView() {
-  return document.getElementById("evaluator").value === "강동현";
-}
-
-async function updateStatsVisibility() {
-  const card = document.getElementById("statsCard");
-  const show = isManagerView();
-  card.classList.toggle("hidden", !show);
-  if (show) await renderStats();
-}
-
 async function renderStats() {
   const statusEl = document.getElementById("statsSyncStatus");
   statusEl.textContent = isSyncEnabled() ? "공유 데이터 불러오는 중..." : "⚠ 공유 저장소 미연결 — 이 기기 데이터만 표시 중";
@@ -412,7 +429,7 @@ function renderHistory() {
     ]);
     tbody.appendChild(row);
   });
-  updateStatsVisibility();
+  renderStats();
 }
 
 function deleteRecord(id) {
@@ -452,6 +469,7 @@ function initButtons() {
 
 document.addEventListener("DOMContentLoaded", () => {
   initHeader();
+  renderDocsList();
   renderCriteria();
   renderDomains();
   initButtons();

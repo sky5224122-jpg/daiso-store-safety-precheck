@@ -51,6 +51,43 @@ body {
   background: #fff;
 }
 
+.docs-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.docs-head h2 { font-size: 15px; color: var(--navy); margin: 0 0 4px; }
+.docs-sub { font-size: 12px; color: var(--muted); }
+.docs-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.doc-link:hover { background: var(--navy-light); }
+.doc-link-disabled { background: #eef0f5; color: var(--muted); cursor: not-allowed; pointer-events: none; }
+.docs-all { margin-top: 14px; font-size: 13px; }
+.docs-all summary { cursor: pointer; color: var(--navy); font-weight: 700; }
+.docs-all-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.doc-link-small {
+  background: var(--ice);
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+.doc-link-small:hover { background: #dde5f7; }
+
 .criteria-card {
   background: #fff;
   border: 1px solid var(--border);
@@ -263,7 +300,6 @@ td.empty { color: var(--muted); text-align: center; }
   padding: 18px;
   margin-bottom: 16px;
 }
-.stats-card.hidden { display: none; }
 .stats-head h2 { font-size: 15px; color: var(--navy); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
 .admin-badge {
   font-size: 11px;
