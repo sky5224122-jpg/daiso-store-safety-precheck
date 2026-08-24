@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>매장 안전보건관리체계 사전지원 평가</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="app-header">
+  <div class="header-inner">
+    <h1>매장 안전보건관리체계 사전지원 평가</h1>
+    <p class="subtitle">ISO 45001 심사 · 중대재해처벌법 대응 사전 지원 · 안전보건팀</p>
+  </div>
+</header>
+
+<main class="container">
+  <section class="info-card">
+    <div class="field">
+      <label for="visitDate">방문일</label>
+      <input type="date" id="visitDate" />
+    </div>
+    <div class="field">
+      <label for="evaluator">평가자</label>
+      <select id="evaluator">
+        <option value="">선택</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="storeName">매장명</label>
+      <input list="storeList" id="storeName" placeholder="매장명 입력 또는 선택" />
+      <datalist id="storeList"></datalist>
+    </div>
+  </section>
+
+  <section class="summary-bar">
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
+      <span id="progress" class="progress-text">0 / 31 항목 평가 완료</span>
+    </div>
+    <div class="final-grade-box">
+      <span class="final-grade-label">최종 등급</span>
+      <div id="finalGrade" class="final-grade-value">-</div>
+      <span id="finalReason" class="final-reason">항목을 평가하면 최종 등급이 자동 계산됩니다.</span>
+    </div>
+  </section>
+
+  <div id="interviewWarning" class="warning-banner hidden">
+    ⚠ 인터뷰 영역에서 D 등급이 발생했습니다 — 문서 · 현장 점수와 무관하게 <strong>최종 등급이 D로 자동 확정</strong>됩니다. (산업재해 보고 절차 미인지 등 필수 항목 미비 시 즉시 집중 지원 대상)
+  </div>
+
+  <div id="domains"></div>
+
+  <section class="memo-card">
+    <label for="memo">특이사항 메모</label>
+    <textarea id="memo" rows="3" placeholder="현장에서 확인한 특이사항, 보강 필요 내용 등을 기록하세요."></textarea>
+  </section>
+
+  <section class="action-bar">
+    <button id="saveBtn" class="primary-btn">결과 저장 (이 기기)</button>
+    <button id="copyBtn" class="secondary-btn">결과 텍스트 복사</button>
+    <button id="printBtn" class="secondary-btn">인쇄 / PDF 저장</button>
+    <button id="resetBtn" class="ghost-btn">새 평가 시작</button>
+  </section>
+
+  <section class="history-card">
+    <h2>저장된 평가 이력 (이 기기)</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>방문일</th><th>매장</th><th>평가자</th><th>최종등급</th><th>메모</th><th>동작</th></tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    <p>기준: 26년 매장 안전보건관리체(ISO45001) 준비 사항 · 안전보건팀 (강동현 · 유준하 · 서유림 · 윤정인)</p>
+  </footer>
+</main>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
