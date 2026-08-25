@@ -356,6 +356,25 @@ td.empty { color: var(--muted); text-align: center; }
 .grade-chip { padding: 2px 10px; border-radius: 10px; font-weight: 800; font-size: 12px; }
 .small-btn { padding: 5px 10px; font-size: 12px; margin-right: 6px; background: #eef0f5; border-color: #eef0f5; color: var(--text); }
 .small-btn.danger { background: #fdeceb; color: var(--grade-d); }
+.small-btn.primary-small { background: var(--navy); color: #fff; }
+
+.loaded-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #eaf3ff;
+  border: 1px solid var(--navy-light);
+  color: var(--navy);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.loaded-banner.hidden { display: none; }
+.loaded-banner .small-btn { margin-right: 0; flex: 0 0 auto; }
 
 .stats-card {
   background: #fff;

@@ -20,7 +20,7 @@ function doPost(e) {
       return jsonOutput({ ok: false, error: "unauthorized" });
     }
     const sheet = getSheet();
-    sheet.appendRow([
+    const rowData = [
       new Date(),
       data.id || "",
       data.date || "",
@@ -31,8 +31,25 @@ function doPost(e) {
       JSON.stringify(data.answers || {}),
       JSON.stringify(data.notes || {}),
       data.reportText || "",
-    ]);
-    return jsonOutput({ ok: true });
+    ];
+
+    // 같은 id의 기록이 이미 있으면 새 행을 추가하지 않고 그 행을 덮어씀 ("이어서 저장" 지원)
+    const idStr = String(data.id || "");
+    const values = sheet.getDataRange().getValues();
+    let existingRow = -1;
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][1]) === idStr) {
+        existingRow = i + 1; // 시트 행 번호(1-based, 헤더 포함)
+        break;
+      }
+    }
+
+    if (existingRow > 0) {
+      sheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
+    } else {
+      sheet.appendRow(rowData);
+    }
+    return jsonOutput({ ok: true, updated: existingRow > 0 });
   } catch (err) {
     return jsonOutput({ ok: false, error: String(err) });
   }

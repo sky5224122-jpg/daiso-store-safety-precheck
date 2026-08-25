@@ -5,6 +5,7 @@ const state = {
   answers: {}, // itemId -> "A"|"B"|"C"|"D"|"NA"
   notes: {}, // itemId -> 수기 평가 결과 텍스트
   photos: {}, // itemId -> [{ id, dataUrl }]
+  currentRecordId: null, // 불러온 기록의 id (이어서 저장 시 새로 쌓이지 않고 업데이트됨)
 };
 
 const PHOTO_MAX_DIM = 900;
@@ -344,8 +345,9 @@ async function saveRecord() {
   if (finalGrade === "-") {
     if (!confirm("아직 평가 항목이 없습니다. 그래도 저장하시겠습니까?")) return;
   }
+  const isUpdate = !!state.currentRecordId;
   const record = {
-    id: Date.now(),
+    id: state.currentRecordId || Date.now(),
     savedAt: new Date().toISOString(),
     store,
     evaluator,
@@ -358,18 +360,25 @@ async function saveRecord() {
     reportText: buildReportText(),
   };
   const records = loadRecords();
-  records.unshift(record);
+  const existingIdx = isUpdate ? records.findIndex((r) => r.id === state.currentRecordId) : -1;
+  if (existingIdx >= 0) {
+    records[existingIdx] = record;
+  } else {
+    records.unshift(record);
+  }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   } catch (err) {
     alert("사진 용량이 커서 이 기기 저장 공간이 부족합니다.\n오래된 기록을 삭제하거나 사진 개수를 줄인 뒤 다시 시도해 주세요.");
-    records.shift();
     return;
   }
+  state.currentRecordId = record.id;
   renderHistory();
+  updateLoadedBanner();
 
+  const savedWhereNote = existingIdx >= 0 ? "(기존 기록을 업데이트했습니다)" : "";
   if (!isSyncEnabled()) {
-    alert("이 기기에 저장되었습니다.\n(공유 저장소가 아직 연결되지 않아 다른 평가자와는 자동으로 합쳐지지 않습니다.)");
+    alert(`이 기기에 저장되었습니다. ${savedWhereNote}\n(공유 저장소가 아직 연결되지 않아 다른 평가자와는 자동으로 합쳐지지 않습니다.)`);
     return;
   }
   const saveBtn = document.getElementById("saveBtn");
@@ -381,7 +390,7 @@ async function saveRecord() {
   saveBtn.textContent = "결과 저장 (이 기기 + 공유)";
   if (result.ok) {
     const photoNote = Object.keys(photos || {}).length > 0 ? "\n(사진은 용량 제한으로 이 기기에만 저장되며 공유 저장소에는 전송되지 않습니다)" : "";
-    alert("이 기기와 공유 저장소에 모두 저장되었습니다." + photoNote);
+    alert(`이 기기와 공유 저장소에 모두 저장되었습니다. ${savedWhereNote}${photoNote}`);
   } else {
     alert("이 기기에는 저장되었지만 공유 저장소 전송에 실패했습니다.\n(네트워크 상태를 확인하고 나중에 다시 시도해 주세요)");
   }
@@ -522,6 +531,7 @@ function renderHistory() {
       el("td", {}, [el("span", { class: `grade-chip grade-bg-${r.finalGrade}`, text: r.finalGrade })]),
       el("td", { text: r.memo || "-" }),
       el("td", {}, [
+        el("button", { class: "small-btn primary-small", text: "불러오기", onclick: () => loadRecordIntoForm(r) }),
         el("button", { class: "small-btn", text: "복사", onclick: () => copyText(r.reportText) }),
         el("button", { class: "small-btn danger", text: "삭제", onclick: () => deleteRecord(r.id) }),
       ]),
@@ -535,7 +545,59 @@ function deleteRecord(id) {
   if (!confirm("이 평가 결과를 삭제하시겠습니까?")) return;
   const records = loadRecords().filter((r) => r.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  if (state.currentRecordId === id) {
+    state.currentRecordId = null;
+    updateLoadedBanner();
+  }
   renderHistory();
+}
+
+function loadRecordIntoForm(record) {
+  if (state.currentRecordId == null && hasUnsavedInput()) {
+    if (!confirm("현재 입력 중인 내용이 저장되지 않았습니다. 그래도 불러오시겠습니까?")) return;
+  }
+
+  document.getElementById("visitDate").value = record.date || "";
+  document.getElementById("evaluator").value = record.evaluator || "";
+  document.getElementById("storeName").value = record.store || "";
+  updateStoreDocLink(record.store || "");
+  document.getElementById("memo").value = record.memo || "";
+
+  state.answers = { ...record.answers };
+  state.notes = { ...record.notes };
+  state.photos = JSON.parse(JSON.stringify(record.photos || {}));
+  state.currentRecordId = record.id;
+
+  document.querySelectorAll(".grade-btn").forEach((b) => {
+    b.classList.toggle("active", state.answers[b.dataset.item] === b.dataset.grade);
+  });
+  document.querySelectorAll(".item-note").forEach((t) => {
+    const itemId = t.id.replace("note-", "");
+    t.value = state.notes[itemId] || "";
+  });
+  document.querySelectorAll(".photo-thumbs").forEach((wrap) => {
+    const itemId = wrap.id.replace("photo-thumbs-", "");
+    renderPhotoThumbs(itemId, wrap);
+  });
+
+  recalc();
+  updateLoadedBanner();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function hasUnsavedInput() {
+  return Object.keys(state.answers).length > 0 || Object.keys(state.notes).some((k) => state.notes[k]) || Object.keys(state.photos).some((k) => (state.photos[k] || []).length > 0);
+}
+
+function updateLoadedBanner() {
+  const banner = document.getElementById("loadedBanner");
+  if (state.currentRecordId) {
+    const store = document.getElementById("storeName").value || "(매장명 없음)";
+    document.getElementById("loadedBannerText").textContent = `"${store}" 저장된 평가를 불러왔습니다 — 이어서 평가 후 저장하면 이 기록이 업데이트됩니다.`;
+    banner.classList.remove("hidden");
+  } else {
+    banner.classList.add("hidden");
+  }
 }
 
 function copyText(text) {
@@ -550,12 +612,15 @@ function resetForm() {
   state.answers = {};
   state.notes = {};
   state.photos = {};
+  state.currentRecordId = null;
   document.querySelectorAll(".grade-btn.active").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".item-note").forEach((t) => (t.value = ""));
   document.querySelectorAll(".photo-thumbs").forEach((t) => (t.innerHTML = ""));
   document.querySelectorAll(".photo-input-hidden").forEach((i) => (i.value = ""));
   document.getElementById("memo").value = "";
   document.getElementById("storeName").value = "";
+  updateStoreDocLink("");
+  updateLoadedBanner();
   recalc();
 }
 
@@ -567,6 +632,7 @@ function initButtons() {
   document.getElementById("printBtn").addEventListener("click", () => window.print());
   document.getElementById("resetBtn").addEventListener("click", resetForm);
   document.getElementById("statsRefreshBtn").addEventListener("click", renderStats);
+  document.getElementById("loadedBannerClear").addEventListener("click", resetForm);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
