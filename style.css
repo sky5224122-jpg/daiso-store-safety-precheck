@@ -334,8 +334,8 @@ body {
   resize: vertical;
 }
 
-.action-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-.primary-btn, .secondary-btn, .ghost-btn, .small-btn {
+.action-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.primary-btn, .secondary-btn, .ghost-btn, .small-btn, .draft-btn {
   padding: 12px 18px;
   border-radius: 8px;
   font-size: 14px;
@@ -346,6 +346,16 @@ body {
 .primary-btn { background: var(--navy); color: #fff; }
 .secondary-btn { background: #fff; border-color: var(--navy); color: var(--navy); }
 .ghost-btn { background: #fff; border-color: var(--border); color: var(--muted); }
+.draft-btn { background: #fff8e6; border-color: #f0c94a; color: #8a6d00; }
+.draft-btn:hover { background: #fdedc0; }
+.draft-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--grade-a);
+  margin: 0 0 16px;
+}
+.draft-status.hidden { display: none; }
+.draft-status.draft-status-error { color: var(--grade-d); }
 
 .history-card h2 { font-size: 15px; color: var(--navy); margin: 0 0 12px; }
 .table-scroll { overflow-x: auto; }
@@ -422,7 +432,7 @@ td.empty { color: var(--muted); text-align: center; }
 }
 
 @media print {
-  .action-bar, .history-card, header.app-header, .grade-btn:not(.active), .item-note:placeholder-shown, .criteria-toggle, .photo-add-btn, .photo-remove-btn { display: none !important; }
+  .action-bar, .history-card, header.app-header, .grade-btn:not(.active), .item-note:placeholder-shown, .criteria-toggle, .photo-add-btn, .photo-remove-btn, .draft-status { display: none !important; }
   body { background: #fff; }
   .grade-btn.active { border: none; }
   .criteria-panel { display: block !important; }

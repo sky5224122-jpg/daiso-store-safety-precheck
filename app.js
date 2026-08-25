@@ -334,6 +334,64 @@ function buildReportText() {
   return lines.join("\n");
 }
 
+function buildRecordFromForm() {
+  return {
+    id: state.currentRecordId || Date.now(),
+    savedAt: new Date().toISOString(),
+    store: document.getElementById("storeName").value.trim(),
+    evaluator: document.getElementById("evaluator").value,
+    date: document.getElementById("visitDate").value,
+    finalGrade: document.getElementById("finalGrade").textContent,
+    memo: document.getElementById("memo").value.trim(),
+    answers: { ...state.answers },
+    notes: { ...state.notes },
+    photos: JSON.parse(JSON.stringify(state.photos)),
+    reportText: buildReportText(),
+  };
+}
+
+// 로컬(이 기기)에만 저장. 반환값: 기존 기록을 덮어썼는지 여부
+function saveLocalOnly(record) {
+  const records = loadRecords();
+  const existingIdx = records.findIndex((r) => r.id === record.id);
+  if (existingIdx >= 0) {
+    records[existingIdx] = record;
+  } else {
+    records.unshift(record);
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); // 용량 초과 시 예외를 그대로 던짐 (호출부에서 처리)
+  state.currentRecordId = record.id;
+  renderHistory();
+  updateLoadedBanner();
+  return existingIdx >= 0;
+}
+
+function draftSave() {
+  const store = document.getElementById("storeName").value.trim();
+  const evaluator = document.getElementById("evaluator").value;
+  if (!store || !evaluator) {
+    alert("매장명과 평가자를 입력해 주세요.");
+    return;
+  }
+  const record = buildRecordFromForm();
+  let isUpdate;
+  try {
+    isUpdate = saveLocalOnly(record);
+  } catch (err) {
+    showDraftStatus("사진 용량이 커서 저장 공간이 부족합니다. 사진을 줄여주세요.", true);
+    return;
+  }
+  const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  showDraftStatus(`✓ ${isUpdate ? "임시저장 업데이트됨" : "임시저장됨"} · ${now} (이 기기에만 저장 · 공유 저장소 미전송)`, false);
+}
+
+function showDraftStatus(text, isError) {
+  const el = document.getElementById("draftStatus");
+  el.textContent = text;
+  el.classList.remove("hidden");
+  el.classList.toggle("draft-status-error", !!isError);
+}
+
 async function saveRecord() {
   const store = document.getElementById("storeName").value.trim();
   const evaluator = document.getElementById("evaluator").value;
@@ -345,38 +403,17 @@ async function saveRecord() {
   if (finalGrade === "-") {
     if (!confirm("아직 평가 항목이 없습니다. 그래도 저장하시겠습니까?")) return;
   }
-  const isUpdate = !!state.currentRecordId;
-  const record = {
-    id: state.currentRecordId || Date.now(),
-    savedAt: new Date().toISOString(),
-    store,
-    evaluator,
-    date: document.getElementById("visitDate").value,
-    finalGrade,
-    memo: document.getElementById("memo").value.trim(),
-    answers: { ...state.answers },
-    notes: { ...state.notes },
-    photos: JSON.parse(JSON.stringify(state.photos)),
-    reportText: buildReportText(),
-  };
-  const records = loadRecords();
-  const existingIdx = isUpdate ? records.findIndex((r) => r.id === state.currentRecordId) : -1;
-  if (existingIdx >= 0) {
-    records[existingIdx] = record;
-  } else {
-    records.unshift(record);
-  }
+  const record = buildRecordFromForm();
+  let isUpdate;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    isUpdate = saveLocalOnly(record);
   } catch (err) {
     alert("사진 용량이 커서 이 기기 저장 공간이 부족합니다.\n오래된 기록을 삭제하거나 사진 개수를 줄인 뒤 다시 시도해 주세요.");
     return;
   }
-  state.currentRecordId = record.id;
-  renderHistory();
-  updateLoadedBanner();
+  document.getElementById("draftStatus").classList.add("hidden");
 
-  const savedWhereNote = existingIdx >= 0 ? "(기존 기록을 업데이트했습니다)" : "";
+  const savedWhereNote = isUpdate ? "(기존 기록을 업데이트했습니다)" : "";
   if (!isSyncEnabled()) {
     alert(`이 기기에 저장되었습니다. ${savedWhereNote}\n(공유 저장소가 아직 연결되지 않아 다른 평가자와는 자동으로 합쳐지지 않습니다.)`);
     return;
@@ -582,6 +619,7 @@ function loadRecordIntoForm(record) {
 
   recalc();
   updateLoadedBanner();
+  document.getElementById("draftStatus").classList.add("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -621,6 +659,7 @@ function resetForm() {
   document.getElementById("storeName").value = "";
   updateStoreDocLink("");
   updateLoadedBanner();
+  document.getElementById("draftStatus").classList.add("hidden");
   recalc();
 }
 
@@ -628,6 +667,7 @@ function initButtons() {
   const saveBtn = document.getElementById("saveBtn");
   saveBtn.textContent = isSyncEnabled() ? "결과 저장 (이 기기 + 공유)" : "결과 저장 (이 기기)";
   saveBtn.addEventListener("click", saveRecord);
+  document.getElementById("draftBtn").addEventListener("click", draftSave);
   document.getElementById("copyBtn").addEventListener("click", () => copyText(buildReportText()));
   document.getElementById("printBtn").addEventListener("click", () => window.print());
   document.getElementById("resetBtn").addEventListener("click", resetForm);
