@@ -4,7 +4,39 @@ const STORAGE_KEY = "daiso_store_precheck_records_v1";
 const state = {
   answers: {}, // itemId -> "A"|"B"|"C"|"D"|"NA"
   notes: {}, // itemId -> 수기 평가 결과 텍스트
+  photos: {}, // itemId -> [{ id, dataUrl }]
 };
+
+const PHOTO_MAX_DIM = 900;
+const PHOTO_QUALITY = 0.6;
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("이미지를 읽을 수 없습니다."));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > PHOTO_MAX_DIM) {
+          height = Math.round((height * PHOTO_MAX_DIM) / width);
+          width = PHOTO_MAX_DIM;
+        } else if (height >= width && height > PHOTO_MAX_DIM) {
+          width = Math.round((width * PHOTO_MAX_DIM) / height);
+          height = PHOTO_MAX_DIM;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", PHOTO_QUALITY));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function el(tag, attrs = {}, children = []) {
   const e = document.createElement(tag);
@@ -101,6 +133,61 @@ function selectGrade(itemId, grade) {
   recalc();
 }
 
+function buildPhotoSection(itemId) {
+  const thumbsWrap = el("div", { class: "photo-thumbs", id: `photo-thumbs-${itemId}` });
+
+  const inputId = `photo-input-${itemId}`;
+  const fileInput = el("input", {
+    type: "file",
+    accept: "image/*",
+    capture: "environment",
+    multiple: "",
+    id: inputId,
+    class: "photo-input-hidden",
+  });
+  fileInput.addEventListener("change", async (e) => {
+    await handlePhotoFiles(itemId, e.target.files, thumbsWrap);
+    fileInput.value = "";
+  });
+
+  const addBtn = el("label", { class: "photo-add-btn", for: inputId, text: "📷 사진 촬영 · 첨부" });
+
+  return el("div", { class: "photo-section" }, [addBtn, fileInput, thumbsWrap]);
+}
+
+async function handlePhotoFiles(itemId, fileList, thumbsWrap) {
+  if (!state.photos[itemId]) state.photos[itemId] = [];
+  for (const file of Array.from(fileList)) {
+    try {
+      const dataUrl = await compressImage(file);
+      state.photos[itemId].push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, dataUrl });
+    } catch (err) {
+      alert("사진을 처리하지 못했습니다: " + file.name);
+    }
+  }
+  renderPhotoThumbs(itemId, thumbsWrap);
+}
+
+function renderPhotoThumbs(itemId, thumbsWrap) {
+  thumbsWrap.innerHTML = "";
+  (state.photos[itemId] || []).forEach((p) => {
+    thumbsWrap.appendChild(
+      el("div", { class: "photo-thumb" }, [
+        el("img", { src: p.dataUrl, alt: "첨부 사진" }),
+        el("button", {
+          class: "photo-remove-btn",
+          type: "button",
+          text: "×",
+          onclick: () => {
+            state.photos[itemId] = state.photos[itemId].filter((x) => x.id !== p.id);
+            renderPhotoThumbs(itemId, thumbsWrap);
+          },
+        }),
+      ])
+    );
+  });
+}
+
 function renderDomains() {
   const root = document.getElementById("domains");
   DOMAINS.forEach((domain) => {
@@ -144,6 +231,7 @@ function renderDomains() {
       const top = el("div", { class: "item-row-top" }, [info, buttons]);
       row.appendChild(top);
       row.appendChild(noteInput);
+      row.appendChild(buildPhotoSection(item.id));
       table.appendChild(row);
     });
     section.appendChild(table);
@@ -230,6 +318,8 @@ function buildReportText() {
       lines.push(`  [${ans}] ${item.name}`);
       const note = (state.notes[item.id] || "").trim();
       if (note) lines.push(`      ↳ ${note}`);
+      const photoCount = (state.photos[item.id] || []).length;
+      if (photoCount > 0) lines.push(`      📷 사진 ${photoCount}장 첨부 (앱 화면 · 인쇄 미리보기에서 확인)`);
     });
     lines.push("");
   });
@@ -264,11 +354,18 @@ async function saveRecord() {
     memo: document.getElementById("memo").value.trim(),
     answers: { ...state.answers },
     notes: { ...state.notes },
+    photos: JSON.parse(JSON.stringify(state.photos)),
     reportText: buildReportText(),
   };
   const records = loadRecords();
   records.unshift(record);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (err) {
+    alert("사진 용량이 커서 이 기기 저장 공간이 부족합니다.\n오래된 기록을 삭제하거나 사진 개수를 줄인 뒤 다시 시도해 주세요.");
+    records.shift();
+    return;
+  }
   renderHistory();
 
   if (!isSyncEnabled()) {
@@ -278,11 +375,13 @@ async function saveRecord() {
   const saveBtn = document.getElementById("saveBtn");
   saveBtn.disabled = true;
   saveBtn.textContent = "공유 저장소에 전송 중...";
-  const result = await pushToSync(record);
+  const { photos, ...syncRecord } = record; // 사진은 용량 문제로 공유 저장소에는 전송하지 않음
+  const result = await pushToSync(syncRecord);
   saveBtn.disabled = false;
   saveBtn.textContent = "결과 저장 (이 기기 + 공유)";
   if (result.ok) {
-    alert("이 기기와 공유 저장소에 모두 저장되었습니다.");
+    const photoNote = Object.keys(photos || {}).length > 0 ? "\n(사진은 용량 제한으로 이 기기에만 저장되며 공유 저장소에는 전송되지 않습니다)" : "";
+    alert("이 기기와 공유 저장소에 모두 저장되었습니다." + photoNote);
   } else {
     alert("이 기기에는 저장되었지만 공유 저장소 전송에 실패했습니다.\n(네트워크 상태를 확인하고 나중에 다시 시도해 주세요)");
   }
@@ -450,8 +549,11 @@ function resetForm() {
   if (!confirm("현재 입력한 평가 내용을 모두 초기화할까요?")) return;
   state.answers = {};
   state.notes = {};
+  state.photos = {};
   document.querySelectorAll(".grade-btn.active").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".item-note").forEach((t) => (t.value = ""));
+  document.querySelectorAll(".photo-thumbs").forEach((t) => (t.innerHTML = ""));
+  document.querySelectorAll(".photo-input-hidden").forEach((i) => (i.value = ""));
   document.getElementById("memo").value = "";
   document.getElementById("storeName").value = "";
   recalc();

@@ -229,6 +229,47 @@ body {
   background: #fafbfd;
 }
 .item-note:focus { background: #fff; border-color: var(--navy-light); outline: none; }
+
+.photo-section { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.photo-input-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.photo-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ice);
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.photo-add-btn:hover { background: #dde5f7; }
+.photo-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.photo-thumb { position: relative; width: 64px; height: 64px; }
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: block;
+}
+.photo-remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--grade-d);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
 .item-cat { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; flex-wrap: wrap; }
 .cat-chip {
   font-size: 11px;
@@ -362,8 +403,9 @@ td.empty { color: var(--muted); text-align: center; }
 }
 
 @media print {
-  .action-bar, .history-card, header.app-header, .grade-btn:not(.active), .item-note:placeholder-shown, .criteria-toggle { display: none !important; }
+  .action-bar, .history-card, header.app-header, .grade-btn:not(.active), .item-note:placeholder-shown, .criteria-toggle, .photo-add-btn, .photo-remove-btn { display: none !important; }
   body { background: #fff; }
   .grade-btn.active { border: none; }
   .criteria-panel { display: block !important; }
+  .photo-thumb { width: 90px; height: 90px; }
 }
