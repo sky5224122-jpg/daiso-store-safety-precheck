@@ -424,7 +424,7 @@ async function saveRecord() {
   const { photos, ...syncRecord } = record; // 사진은 용량 문제로 공유 저장소에는 전송하지 않음
   const result = await pushToSync(syncRecord);
   saveBtn.disabled = false;
-  saveBtn.textContent = "결과 저장 (이 기기 + 공유)";
+  updateSaveButtonLabels();
   if (result.ok) {
     const photoNote = Object.keys(photos || {}).length > 0 ? "\n(사진은 용량 제한으로 이 기기에만 저장되며 공유 저장소에는 전송되지 않습니다)" : "";
     alert(`이 기기와 공유 저장소에 모두 저장되었습니다. ${savedWhereNote}${photoNote}`);
@@ -569,7 +569,7 @@ function renderHistory() {
       el("td", {}, [el("span", { class: `grade-chip grade-bg-${r.finalGrade}`, text: r.finalGrade })]),
       el("td", { text: r.memo || "-" }),
       el("td", {}, [
-        el("button", { class: "small-btn primary-small", text: "불러오기", onclick: () => loadRecordIntoForm(r) }),
+        el("button", { class: "small-btn primary-small", text: "✎ 수정", onclick: () => loadRecordIntoForm(r) }),
         el("button", { class: "small-btn", text: "복사", onclick: () => copyText(r.reportText) }),
         el("button", { class: "small-btn danger", text: "삭제", onclick: () => deleteRecord(r.id) }),
       ]),
@@ -613,7 +613,7 @@ async function renderSharedHistory() {
         el("td", {}, [el("span", { class: `grade-chip grade-bg-${r.finalGrade}`, text: r.finalGrade })]),
         el("td", { text: r.memo || "-" }),
         el("td", {}, [
-          el("button", { class: "small-btn primary-small", text: "불러오기", onclick: () => loadRecordIntoForm(r) }),
+          el("button", { class: "small-btn primary-small", text: "✎ 수정", onclick: () => loadRecordIntoForm(r) }),
           el("button", { class: "small-btn", text: "복사", onclick: () => copyText(r.reportText) }),
         ]),
       ])
@@ -674,10 +674,27 @@ function updateLoadedBanner() {
   const banner = document.getElementById("loadedBanner");
   if (state.currentRecordId) {
     const store = document.getElementById("storeName").value || "(매장명 없음)";
-    document.getElementById("loadedBannerText").textContent = `"${store}" 저장된 평가를 불러왔습니다 — 이어서 평가 후 저장하면 이 기록이 업데이트됩니다.`;
+    document.getElementById("loadedBannerText").textContent = `✎ 수정 중 — "${store}" 기존 기록을 불러왔습니다. 내용을 고친 뒤 저장하면 새로 쌓이지 않고 이 기록이 그대로 수정됩니다.`;
+    banner.classList.add("editing");
     banner.classList.remove("hidden");
   } else {
     banner.classList.add("hidden");
+    banner.classList.remove("editing");
+  }
+  updateSaveButtonLabels();
+}
+
+function updateSaveButtonLabels() {
+  const editing = !!state.currentRecordId;
+  const saveBtn = document.getElementById("saveBtn");
+  const draftBtn = document.getElementById("draftBtn");
+  if (saveBtn) {
+    saveBtn.textContent = editing
+      ? (isSyncEnabled() ? "수정 내용 저장 (이 기기 + 공유)" : "수정 내용 저장 (이 기기)")
+      : (isSyncEnabled() ? "결과 저장 (이 기기 + 공유)" : "결과 저장 (이 기기)");
+  }
+  if (draftBtn) {
+    draftBtn.textContent = editing ? "💾 수정 임시저장" : "💾 임시저장";
   }
 }
 
@@ -708,7 +725,7 @@ function resetForm() {
 
 function initButtons() {
   const saveBtn = document.getElementById("saveBtn");
-  saveBtn.textContent = isSyncEnabled() ? "결과 저장 (이 기기 + 공유)" : "결과 저장 (이 기기)";
+  updateSaveButtonLabels();
   saveBtn.addEventListener("click", saveRecord);
   document.getElementById("draftBtn").addEventListener("click", draftSave);
   document.getElementById("copyBtn").addEventListener("click", () => copyText(buildReportText()));
