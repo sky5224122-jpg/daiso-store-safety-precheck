@@ -357,6 +357,18 @@ body {
 .draft-status.hidden { display: none; }
 .draft-status.draft-status-error { color: var(--grade-d); }
 
+.storage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.storage-usage { font-size: 11px; color: var(--muted); }
+.storage-usage.storage-warn { color: var(--grade-c); font-weight: 700; }
+.storage-usage.storage-danger { color: var(--grade-d); font-weight: 700; }
+
 .history-card h2 { font-size: 15px; color: var(--navy); margin: 0 0 12px; }
 .history-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .history-head h2 { margin: 0; }
@@ -436,7 +448,7 @@ td.empty { color: var(--muted); text-align: center; }
 }
 
 @media print {
-  .action-bar, .history-card, header.app-header, .grade-btn:not(.active), .item-note:placeholder-shown, .criteria-toggle, .photo-add-btn, .photo-remove-btn, .draft-status { display: none !important; }
+  .action-bar, .history-card, header.app-header, .grade-btn:not(.active), .item-note:placeholder-shown, .criteria-toggle, .photo-add-btn, .photo-remove-btn, .draft-status, .storage-row { display: none !important; }
   body { background: #fff; }
   .grade-btn.active { border: none; }
   .criteria-panel { display: block !important; }

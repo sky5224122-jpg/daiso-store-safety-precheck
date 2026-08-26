@@ -8,8 +8,52 @@ const state = {
   currentRecordId: null, // 불러온 기록의 id (이어서 저장 시 새로 쌓이지 않고 업데이트됨)
 };
 
-const PHOTO_MAX_DIM = 900;
-const PHOTO_QUALITY = 0.6;
+const PHOTO_MAX_DIM = 1000;
+const PHOTO_MIN_DIM = 480;
+const PHOTO_START_QUALITY = 0.6;
+const PHOTO_MIN_QUALITY = 0.35;
+const PHOTO_TARGET_BYTES = 180 * 1024; // 사진 1장당 목표 용량 (약 180KB)
+const MAX_PHOTOS_PER_ITEM = 3; // 항목당 첨부 가능한 최대 사진 수
+const STORAGE_SOFT_LIMIT_BYTES = 4 * 1024 * 1024; // 이 기기 저장 안전 한도 (브라우저 한도는 보통 5~10MB, 여유 확보)
+const STORAGE_WARN_RATIO = 0.7;
+
+function drawAndEncode(img, maxDim, quality) {
+  let { width, height } = img;
+  if (width > height && width > maxDim) {
+    height = Math.round((height * maxDim) / width);
+    width = maxDim;
+  } else if (height >= width && height > maxDim) {
+    width = Math.round((width * maxDim) / height);
+    height = maxDim;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+// base64 데이터 URL 길이를 실제 바이트 수로 환산 (base64는 원본보다 약 1.37배 큼)
+function dataUrlBytes(dataUrl) {
+  return Math.round(dataUrl.length * 0.75);
+}
+
+// 목표 용량(PHOTO_TARGET_BYTES) 이하가 될 때까지 품질 → 해상도 순으로 단계적으로 낮춰 압축
+function compressToTarget(img) {
+  let maxDim = PHOTO_MAX_DIM;
+  let quality = PHOTO_START_QUALITY;
+  let dataUrl = drawAndEncode(img, maxDim, quality);
+
+  while (dataUrlBytes(dataUrl) > PHOTO_TARGET_BYTES && (quality > PHOTO_MIN_QUALITY || maxDim > PHOTO_MIN_DIM)) {
+    if (quality > PHOTO_MIN_QUALITY) {
+      quality = Math.max(PHOTO_MIN_QUALITY, quality - 0.1);
+    } else {
+      maxDim = Math.max(PHOTO_MIN_DIM, Math.round(maxDim * 0.85));
+    }
+    dataUrl = drawAndEncode(img, maxDim, quality);
+  }
+  return dataUrl;
+}
 
 function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -19,19 +63,11 @@ function compressImage(file) {
       const img = new Image();
       img.onerror = () => reject(new Error("이미지를 읽을 수 없습니다."));
       img.onload = () => {
-        let { width, height } = img;
-        if (width > height && width > PHOTO_MAX_DIM) {
-          height = Math.round((height * PHOTO_MAX_DIM) / width);
-          width = PHOTO_MAX_DIM;
-        } else if (height >= width && height > PHOTO_MAX_DIM) {
-          width = Math.round((width * PHOTO_MAX_DIM) / height);
-          height = PHOTO_MAX_DIM;
+        try {
+          resolve(compressToTarget(img));
+        } catch (err) {
+          reject(err);
         }
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", PHOTO_QUALITY));
       };
       img.src = e.target.result;
     };
@@ -158,7 +194,18 @@ function buildPhotoSection(itemId) {
 
 async function handlePhotoFiles(itemId, fileList, thumbsWrap) {
   if (!state.photos[itemId]) state.photos[itemId] = [];
-  for (const file of Array.from(fileList)) {
+
+  const availableSlots = MAX_PHOTOS_PER_ITEM - state.photos[itemId].length;
+  if (availableSlots <= 0) {
+    alert(`이 항목에는 최대 ${MAX_PHOTOS_PER_ITEM}장까지만 첨부할 수 있습니다.\n기존 사진을 삭제한 뒤 다시 시도해 주세요.`);
+    return;
+  }
+  const files = Array.from(fileList);
+  if (files.length > availableSlots) {
+    alert(`이 항목은 최대 ${MAX_PHOTOS_PER_ITEM}장까지만 첨부 가능해 앞의 ${availableSlots}장만 추가됩니다.`);
+  }
+
+  for (const file of files.slice(0, availableSlots)) {
     try {
       const dataUrl = await compressImage(file);
       state.photos[itemId].push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, dataUrl });
@@ -167,6 +214,7 @@ async function handlePhotoFiles(itemId, fileList, thumbsWrap) {
     }
   }
   renderPhotoThumbs(itemId, thumbsWrap);
+  updateStorageUsageDisplay();
 }
 
 function renderPhotoThumbs(itemId, thumbsWrap) {
@@ -182,6 +230,7 @@ function renderPhotoThumbs(itemId, thumbsWrap) {
           onclick: () => {
             state.photos[itemId] = state.photos[itemId].filter((x) => x.id !== p.id);
             renderPhotoThumbs(itemId, thumbsWrap);
+            updateStorageUsageDisplay();
           },
         }),
       ])
@@ -359,11 +408,66 @@ function saveLocalOnly(record) {
   } else {
     records.unshift(record);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); // 용량 초과 시 예외를 그대로 던짐 (호출부에서 처리)
+  const serialized = JSON.stringify(records);
+  // 브라우저가 실제로 거부하기 전에 안전 한도로 미리 차단 (조용한 실패 방지)
+  if (new Blob([serialized]).size > STORAGE_SOFT_LIMIT_BYTES) {
+    const err = new Error("STORAGE_LIMIT_EXCEEDED");
+    err.code = "STORAGE_LIMIT_EXCEEDED";
+    throw err;
+  }
+  localStorage.setItem(STORAGE_KEY, serialized); // 실제 브라우저 한도 초과 시 예외를 그대로 던짐 (호출부에서 처리)
   state.currentRecordId = record.id;
   renderHistory();
   updateLoadedBanner();
+  updateStorageUsageDisplay();
   return existingIdx >= 0;
+}
+
+function estimateLocalStorageBytes() {
+  const raw = localStorage.getItem(STORAGE_KEY) || "";
+  return new Blob([raw]).size;
+}
+
+function updateStorageUsageDisplay() {
+  const el = document.getElementById("storageUsage");
+  if (!el) return;
+  const bytes = estimateLocalStorageBytes();
+  const mb = (bytes / (1024 * 1024)).toFixed(1);
+  const limitMb = Math.round(STORAGE_SOFT_LIMIT_BYTES / (1024 * 1024));
+  const ratio = bytes / STORAGE_SOFT_LIMIT_BYTES;
+  el.textContent = `이 기기 저장 용량 사용: 약 ${mb}MB / 안전 한도 ${limitMb}MB`;
+  el.classList.toggle("storage-warn", ratio >= STORAGE_WARN_RATIO && ratio < 1);
+  el.classList.toggle("storage-danger", ratio >= 1);
+}
+
+// 오래된 로컬 기록의 사진만 제거해 저장 공간 확보 (등급·메모 등 텍스트 결과는 그대로 유지)
+function cleanupOldPhotos() {
+  const records = loadRecords();
+  const withPhotos = records.filter((r) => r.photos && Object.keys(r.photos).some((k) => (r.photos[k] || []).length > 0));
+  if (withPhotos.length === 0) {
+    alert("정리할 사진이 없습니다.");
+    return;
+  }
+  if (!confirm(`가장 오래된 기록부터 사진만 삭제해 저장 공간을 확보합니다.\n(등급·메모 등 텍스트 결과는 그대로 유지됩니다)\n\n계속할까요?`)) return;
+
+  const sortedOldestFirst = [...withPhotos].sort((a, b) => (a.savedAt < b.savedAt ? -1 : 1));
+  for (const target of sortedOldestFirst) {
+    const idx = records.findIndex((r) => r.id === target.id);
+    if (idx >= 0) records[idx] = { ...records[idx], photos: {} };
+    const serialized = JSON.stringify(records);
+    if (new Blob([serialized]).size <= STORAGE_SOFT_LIMIT_BYTES * STORAGE_WARN_RATIO) {
+      localStorage.setItem(STORAGE_KEY, serialized);
+      renderHistory();
+      updateStorageUsageDisplay();
+      alert("사진을 정리해 저장 공간을 확보했습니다.");
+      return;
+    }
+  }
+  // 전부 정리해도 여전히 부족한 경우
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  renderHistory();
+  updateStorageUsageDisplay();
+  alert("이 기기에 저장된 사진을 모두 정리했습니다.");
 }
 
 function draftSave() {
@@ -378,7 +482,8 @@ function draftSave() {
   try {
     isUpdate = saveLocalOnly(record);
   } catch (err) {
-    showDraftStatus("사진 용량이 커서 저장 공간이 부족합니다. 사진을 줄여주세요.", true);
+    showDraftStatus("⚠ 저장 공간이 부족합니다. 아래 '오래된 사진 정리'를 눌러 공간을 확보한 뒤 다시 시도해 주세요.", true);
+    updateStorageUsageDisplay();
     return;
   }
   const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
@@ -408,7 +513,8 @@ async function saveRecord() {
   try {
     isUpdate = saveLocalOnly(record);
   } catch (err) {
-    alert("사진 용량이 커서 이 기기 저장 공간이 부족합니다.\n오래된 기록을 삭제하거나 사진 개수를 줄인 뒤 다시 시도해 주세요.");
+    alert("이 기기 저장 공간이 부족합니다.\n아래 '오래된 사진 정리' 버튼으로 공간을 확보한 뒤 다시 시도해 주세요.");
+    updateStorageUsageDisplay();
     return;
   }
   document.getElementById("draftStatus").classList.add("hidden");
@@ -630,6 +736,7 @@ function deleteRecord(id) {
     updateLoadedBanner();
   }
   renderHistory();
+  updateStorageUsageDisplay();
 }
 
 function loadRecordIntoForm(record) {
@@ -734,6 +841,7 @@ function initButtons() {
   document.getElementById("statsRefreshBtn").addEventListener("click", renderStats);
   document.getElementById("loadedBannerClear").addEventListener("click", resetForm);
   document.getElementById("sharedHistoryRefreshBtn").addEventListener("click", renderSharedHistory);
+  document.getElementById("cleanupPhotosBtn").addEventListener("click", cleanupOldPhotos);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -744,5 +852,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initButtons();
   renderHistory();
   renderSharedHistory();
+  updateStorageUsageDisplay();
   recalc();
 });
