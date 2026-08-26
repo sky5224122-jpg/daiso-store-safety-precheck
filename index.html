@@ -111,6 +111,22 @@
     </div>
   </section>
 
+  <section class="history-card">
+    <div class="history-head">
+      <h2>전체 저장 기록 (공유 저장소)</h2>
+      <button id="sharedHistoryRefreshBtn" class="small-btn" type="button">새로고침</button>
+    </div>
+    <p class="docs-sub">새 기기에서 접속했거나 다른 평가자가 저장한 기록도 여기서 확인·"불러오기"로 이어서 작업할 수 있습니다.</p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>방문일</th><th>매장</th><th>평가자</th><th>최종등급</th><th>메모</th><th>동작</th></tr>
+        </thead>
+        <tbody id="sharedHistoryBody"></tbody>
+      </table>
+    </div>
+  </section>
+
   <section id="statsCard" class="stats-card">
     <div class="stats-head">
       <h2>매장 평가 통계 <span class="admin-badge">전체 공개</span></h2>

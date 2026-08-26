@@ -428,6 +428,7 @@ async function saveRecord() {
   if (result.ok) {
     const photoNote = Object.keys(photos || {}).length > 0 ? "\n(사진은 용량 제한으로 이 기기에만 저장되며 공유 저장소에는 전송되지 않습니다)" : "";
     alert(`이 기기와 공유 저장소에 모두 저장되었습니다. ${savedWhereNote}${photoNote}`);
+    renderSharedHistory();
   } else {
     alert("이 기기에는 저장되었지만 공유 저장소 전송에 실패했습니다.\n(네트워크 상태를 확인하고 나중에 다시 시도해 주세요)");
   }
@@ -578,6 +579,48 @@ function renderHistory() {
   renderStats();
 }
 
+async function renderSharedHistory() {
+  const tbody = document.getElementById("sharedHistoryBody");
+
+  if (!isSyncEnabled()) {
+    tbody.innerHTML = "";
+    tbody.appendChild(el("tr", {}, [el("td", { colspan: "6", class: "empty", text: "공유 저장소가 아직 연결되지 않았습니다." })]));
+    return;
+  }
+
+  tbody.innerHTML = "";
+  tbody.appendChild(el("tr", {}, [el("td", { colspan: "6", class: "empty", text: "불러오는 중..." })]));
+
+  const shared = await fetchSyncRecords();
+  tbody.innerHTML = "";
+
+  if (shared == null) {
+    tbody.appendChild(el("tr", {}, [el("td", { colspan: "6", class: "empty", text: "공유 저장소를 불러오지 못했습니다 — 네트워크를 확인하고 새로고침해 주세요." })]));
+    return;
+  }
+  if (shared.length === 0) {
+    tbody.appendChild(el("tr", {}, [el("td", { colspan: "6", class: "empty", text: "공유 저장소에 저장된 기록이 아직 없습니다." })]));
+    return;
+  }
+
+  const sorted = [...shared].sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
+  sorted.forEach((r) => {
+    tbody.appendChild(
+      el("tr", {}, [
+        el("td", { text: r.date }),
+        el("td", { text: r.store }),
+        el("td", { text: r.evaluator }),
+        el("td", {}, [el("span", { class: `grade-chip grade-bg-${r.finalGrade}`, text: r.finalGrade })]),
+        el("td", { text: r.memo || "-" }),
+        el("td", {}, [
+          el("button", { class: "small-btn primary-small", text: "불러오기", onclick: () => loadRecordIntoForm(r) }),
+          el("button", { class: "small-btn", text: "복사", onclick: () => copyText(r.reportText) }),
+        ]),
+      ])
+    );
+  });
+}
+
 function deleteRecord(id) {
   if (!confirm("이 평가 결과를 삭제하시겠습니까?")) return;
   const records = loadRecords().filter((r) => r.id !== id);
@@ -673,6 +716,7 @@ function initButtons() {
   document.getElementById("resetBtn").addEventListener("click", resetForm);
   document.getElementById("statsRefreshBtn").addEventListener("click", renderStats);
   document.getElementById("loadedBannerClear").addEventListener("click", resetForm);
+  document.getElementById("sharedHistoryRefreshBtn").addEventListener("click", renderSharedHistory);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -682,5 +726,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderDomains();
   initButtons();
   renderHistory();
+  renderSharedHistory();
   recalc();
 });
